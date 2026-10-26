@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Tetris</title>
   <link rel="stylesheet" href="style.css" />
+  <script>
+    try { if (localStorage.getItem('theme') === 'light') document.documentElement.dataset.theme = 'light'; } catch (e) {}
+  </script>
 </head>
 <body>
   <div class="wrapper">
@@ -41,6 +44,8 @@
             <li><kbd>P</kbd> pausa</li>
           </ul>
         </div>
+
+        <button id="theme-toggle" class="theme-toggle" type="button" role="switch" aria-checked="false" aria-label="Cambiar tema claro/oscuro">Light</button>
       </aside>
     </div>
 
