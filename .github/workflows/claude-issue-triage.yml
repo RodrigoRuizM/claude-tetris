@@ -71,7 +71,12 @@ jobs:
                (por ejemplo tras una edición), quítalas con `gh issue edit --remove-label`.
 
             4. Escribe el diagnóstico en el archivo `.triage-comment.md` (en la raíz del workspace)
-               con este formato Markdown, en español:
+               con este formato Markdown, en español.
+               IMPORTANTE: todo lo que comentes debe estar en formato Markdown válido (GitHub Flavored
+               Markdown) para que GitHub lo renderice correctamente: usa encabezados `##`, negritas `**`,
+               listas con `-` o `1.`, código en línea con comillas invertidas y bloques de código con
+               triple comilla invertida indicando el lenguaje (p. ej. ```js). Escribe saltos de línea
+               reales (no `\n` literales) y no envuelvas el comentario entero en un bloque de código.
 
                <!-- claude-issue-triage -->
                ## 🔎 Diagnóstico automático
