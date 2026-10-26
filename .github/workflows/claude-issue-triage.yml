@@ -1,0 +1,104 @@
+name: Claude Issue Triage
+
+on:
+  issues:
+    types: [opened, edited]
+
+concurrency:
+  group: issue-triage-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  triage:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Ensure triage labels exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          create() { gh label create "$1" --color "$2" --description "$3" --force -R "$REPO"; }
+          create "priority:high"   "b60205" "Prioridad alta: bloquea el juego o es muy visible"
+          create "priority:medium" "fbca04" "Prioridad media: afecta la experiencia pero hay alternativa"
+          create "priority:low"    "0e8a16" "Prioridad baja: detalle menor o mejora opcional"
+          create "area:gameplay"   "1d76db" "Piezas, rotación, colisiones, gravedad"
+          create "area:scoring"    "5319e7" "Puntuación, líneas y niveles"
+          create "area:rendering"  "c5def5" "Dibujo en canvas, ghost piece, preview"
+          create "area:controls"   "bfd4f2" "Teclado, pausa y reinicio"
+          create "area:ui"         "d4c5f9" "HTML, CSS, HUD y overlay"
+
+      - name: Run Claude triage
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: '--allowedTools "Read,Glob,Grep,Write,Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh api:*)"'
+          prompt: |
+            Eres el encargado de hacer el triaje de issues del repositorio ${{ github.repository }},
+            un Tetris en JavaScript vanilla sobre HTML5 Canvas (lee CLAUDE.md para entender la arquitectura).
+
+            Issue a analizar: #${{ github.event.issue.number }} (evento: ${{ github.event.action }}).
+
+            Pasos:
+
+            1. Lee el issue completo:
+               gh issue view ${{ github.event.issue.number }} -R ${{ github.repository }} --json title,body,labels,comments
+
+            2. Revisa el código relevante (game.js, index.html, style.css) para localizar
+               los archivos y funciones afectados. NO modifiques ningún archivo del repositorio.
+
+            3. Consulta las etiquetas disponibles con `gh label list -R ${{ github.repository }}`
+               y usa SOLO etiquetas que existan. Asigna con `gh issue edit --add-label`:
+               - Exactamente 1 etiqueta de tipo: bug, enhancement, documentation, question,
+                 duplicate o invalid.
+               - Exactamente 1 etiqueta de prioridad: priority:high, priority:medium o priority:low.
+               - 1 o más etiquetas de área: area:gameplay, area:scoring, area:rendering,
+                 area:controls, area:ui.
+               - Opcionalmente: good first issue (cambio simple y acotado), accessibility, help wanted.
+               Si el issue ya tenía etiquetas de tipo, priority:* o area:* que ya no corresponden
+               (por ejemplo tras una edición), quítalas con `gh issue edit --remove-label`.
+
+            4. Escribe el diagnóstico en el archivo `.triage-comment.md` (en la raíz del workspace)
+               con este formato Markdown, en español:
+
+               <!-- claude-issue-triage -->
+               ## 🔎 Diagnóstico automático
+
+               **Resumen:** qué se reporta o solicita, en 1-3 frases.
+
+               **Clasificación:** tipo, prioridad y área(s), con una justificación breve.
+
+               **Código afectado:** archivos y funciones concretas (p. ej. `game.js` → `tryRotate`, `collide`).
+
+               **Análisis / causa probable:** explicación técnica del problema o de lo que implica la mejora.
+
+               **Propuesta de solución:** pasos concretos y ordenados para implementarla.
+
+               **Criterios de verificación:** cómo comprobarlo manualmente en el navegador.
+
+               **Dudas abiertas:** información que falte en el issue (omite la sección si no hay).
+
+               ---
+               _Diagnóstico generado automáticamente por Claude. Se actualiza al editar el issue._
+
+            5. Publica el diagnóstico manteniendo UN SOLO comentario de triaje por issue:
+               - Busca un comentario existente con el marcador:
+                 gh api repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments --paginate --jq '.[] | select(.body | contains("<!-- claude-issue-triage -->")) | .id'
+               - Si existe, actualízalo:
+                 gh api -X PATCH repos/${{ github.repository }}/issues/comments/<ID> -F body=@.triage-comment.md
+               - Si no existe, créalo:
+                 gh api -X POST repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments -F body=@.triage-comment.md
+
+            No hagas nada más que etiquetar y comentar.
