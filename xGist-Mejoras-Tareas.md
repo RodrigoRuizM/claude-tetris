@@ -18,7 +18,11 @@ Añadir piezas pentominó (de 5 bloques) que aparecen ocasionalmente:
 - Pieza `U`
 - Pieza `Y`
 - Pieza `1×1` (single) como recompensa tras un Tetris
+  - Necesito agregar una nueva pieza de 1x1 (single), Esta pieza aparecerá igual que el resto y su color será amarillo.
 - Pieza `3×3` hueca como reto
+  - Necesito agregar una nueva pieza de 3x3, como si fuera un
+    reto. La pieza es como unas tuercas. Tiene un círculo vacío en medio, lo cual va a ser
+    más complicado en el juego Tetris.
 
 ## 3. Modo combo y multiplicadores
 
