@@ -165,18 +165,15 @@ function updateHUD() {
 
 function drawBlock(context, x, y, colorIndex, size, alpha) {
   if (!colorIndex) return;
-  const color = COLORS[colorIndex];
+  // el dibujo concreto lo hace la skin activa (ver sección "Skins visuales")
+  const skin = SKINS[currentSkin];
   context.globalAlpha = alpha ?? 1;
-  context.fillStyle = color;
-  context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
-  // highlight
-  context.fillStyle = 'rgba(255,255,255,0.12)';
-  context.fillRect(x * size + 1, y * size + 1, size - 2, 4);
+  skin.drawBlock(context, x * size, y * size, size, skin.colors[colorIndex] || COLORS[colorIndex]);
   context.globalAlpha = 1;
 }
 
 function drawGrid() {
-  ctx.strokeStyle = gridColor;
+  ctx.strokeStyle = SKINS[currentSkin].grid || gridColor;
   ctx.lineWidth = 0.5;
   for (let c = 1; c < COLS; c++) {
     ctx.beginPath();
@@ -285,6 +282,11 @@ function init() {
 }
 
 document.addEventListener('keydown', e => {
+  // si el selector de skin conserva el foco, las teclas de juego vuelven al juego
+  if (e.target === skinSelect && GAME_KEYS.includes(e.code)) {
+    e.preventDefault();
+    skinSelect.blur();
+  }
   if (e.code === 'KeyP') { togglePause(); return; }
   if (paused || gameOver) return;
   switch (e.code) {
@@ -310,6 +312,140 @@ document.addEventListener('keydown', e => {
 });
 
 restartBtn.addEventListener('click', init);
+
+// ---- Skins visuales ----
+// Cada skin define colores (alineados con PIECES/COLORS: índice 0 null), fondo, rejilla
+// y su función de dibujo de bloque. bg/grid null = usar los del tema claro/oscuro (CSS).
+
+const skinSelect = document.getElementById('skin-select');
+
+// trayectoria de rectángulo con esquinas redondeadas (sin depender de ctx.roundRect)
+function roundedRectPath(context, x, y, w, h, r) {
+  context.beginPath();
+  context.moveTo(x + r, y);
+  context.arcTo(x + w, y, x + w, y + h, r);
+  context.arcTo(x + w, y + h, x, y + h, r);
+  context.arcTo(x, y + h, x, y, r);
+  context.arcTo(x, y, x + w, y, r);
+  context.closePath();
+}
+
+// patrón fijo de textura 10×10 para Pixel art (1 = pixel oscuro), sin aleatoriedad por frame
+const PIXEL_PATTERN = [
+  '0000000000',
+  '0000000100',
+  '0010000000',
+  '0000010000',
+  '0000000000',
+  '0100000010',
+  '0000100000',
+  '0000000000',
+  '0001000100',
+  '0000000000',
+];
+// coordenadas [fila, col] de los pixels oscuros, precalculadas una sola vez
+const PIXEL_DOTS = [];
+PIXEL_PATTERN.forEach((row, r) => [...row].forEach((v, c) => { if (v === '1') PIXEL_DOTS.push([r, c]); }));
+
+const GAME_KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space', 'KeyX', 'KeyP'];
+
+const SKINS = {
+  retro: {
+    label: 'Retro',
+    colors: COLORS,
+    bg: null,
+    grid: null,
+    drawBlock(context, px, py, size, color) {
+      context.fillStyle = color;
+      context.fillRect(px + 1, py + 1, size - 2, size - 2);
+      // highlight
+      context.fillStyle = 'rgba(255,255,255,0.12)';
+      context.fillRect(px + 1, py + 1, size - 2, 4);
+    },
+  },
+  neon: {
+    label: 'Neon',
+    colors: [null, '#00f0ff', '#fff200', '#d400ff', '#39ff14', '#ff073a', '#3d5afe', '#ff8c00', '#c0c0ff', '#ffff66'],
+    bg: '#000000',
+    grid: '#0d0d1a',
+    drawBlock(context, px, py, size, color) {
+      context.shadowColor = color;
+      context.shadowBlur = 12;
+      context.strokeStyle = color;
+      context.lineWidth = 2;
+      context.strokeRect(px + 3, py + 3, size - 6, size - 6);
+      context.shadowBlur = 0;
+      // relleno tenue dentro del contorno brillante
+      const prevAlpha = context.globalAlpha;
+      context.globalAlpha = prevAlpha * 0.25;
+      context.fillStyle = color;
+      context.fillRect(px + 4, py + 4, size - 8, size - 8);
+      context.globalAlpha = prevAlpha;
+    },
+  },
+  pastel: {
+    label: 'Pastel',
+    colors: [null, '#a8e6ef', '#fdf1a6', '#dcc6f0', '#bfe6c4', '#f6b8b8', '#bcc5f0', '#fdd5a8', '#d5dde2', '#fff6b8'],
+    bg: '#fbf7f2',
+    grid: '#efe7dd',
+    drawBlock(context, px, py, size, color) {
+      roundedRectPath(context, px + 2, py + 2, size - 4, size - 4, 7);
+      context.fillStyle = color;
+      context.fill();
+      context.strokeStyle = 'rgba(120,100,130,0.25)';
+      context.lineWidth = 1;
+      context.stroke();
+      // brillo suave arriba a la izquierda
+      roundedRectPath(context, px + 6, py + 5, size / 2 - 4, 4, 2);
+      context.fillStyle = 'rgba(255,255,255,0.6)';
+      context.fill();
+    },
+  },
+  pixel: {
+    label: 'Pixel art',
+    colors: [null, '#3cbcfc', '#f8b800', '#9c27b0', '#00a800', '#d82800', '#0058f8', '#fc7460', '#7c7c7c', '#fce0a8'],
+    bg: '#14142a',
+    grid: '#20203c',
+    drawBlock(context, px, py, size, color) {
+      const p = size / 10; // tamaño de cada "pixel"
+      context.fillStyle = color;
+      context.fillRect(px, py, size, size);
+      // biselado: claro arriba/izquierda, oscuro abajo/derecha
+      context.fillStyle = 'rgba(255,255,255,0.45)';
+      context.fillRect(px, py, size, p);
+      context.fillRect(px, py, p, size);
+      context.fillStyle = 'rgba(0,0,0,0.45)';
+      context.fillRect(px, py + size - p, size, p);
+      context.fillRect(px + size - p, py, p, size);
+      // textura fija
+      context.fillStyle = 'rgba(0,0,0,0.25)';
+      for (const [r, c] of PIXEL_DOTS) context.fillRect(px + c * p, py + r * p, p, p);
+    },
+  },
+};
+
+let currentSkin = 'retro';
+
+function applySkin(name) {
+  currentSkin = Object.prototype.hasOwnProperty.call(SKINS, name) ? name : 'retro';
+  const skin = SKINS[currentSkin];
+  skinSelect.value = currentSkin;
+  // '' devuelve el fondo al CSS (var(--canvas-bg) del tema)
+  canvas.style.background = skin.bg || '';
+  nextCanvas.style.background = skin.bg || '';
+  // en pausa o game over el loop no redibuja el canvas
+  if (current) { draw(); drawNext(); }
+}
+
+skinSelect.addEventListener('change', () => {
+  try { localStorage.setItem('skin', skinSelect.value); } catch (e) {}
+  applySkin(skinSelect.value);
+  skinSelect.blur(); // devuelve el teclado al juego
+});
+
+let savedSkin = 'retro';
+try { savedSkin = localStorage.getItem('skin') || 'retro'; } catch (e) {}
+applySkin(savedSkin);
 
 function applyTheme(theme) {
   const isLight = theme === 'light';
