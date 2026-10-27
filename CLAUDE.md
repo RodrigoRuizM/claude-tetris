@@ -22,7 +22,7 @@ Three files: `index.html` (DOM + two canvases + overlay), `style.css` (dark them
 
 Key conventions in `game.js`:
 
-- **Board** is a `ROWS × COLS` matrix; each cell is `0` (empty) or a piece type index `1–7`. The same index is used in piece shapes and as the lookup into `COLORS` — piece type, shape cell value and color index must stay aligned across `PIECES` and `COLORS` (index 0 is `null` in both).
+- **Board** is a `ROWS × COLS` matrix; each cell is `0` (empty) or a piece type index `1–8`. The same index is used in piece shapes and as the lookup into `COLORS` — piece type, shape cell value and color index must stay aligned across `PIECES` and `COLORS` (index 0 is `null` in both).
 - **Pieces** are square matrices; rotation is `rotateCW` (transpose + reverse), with simple horizontal wall kicks `[0, -1, 1, -2, 2]` in `tryRotate`. `collide(shape, x, y)` is the single collision check used by movement, rotation, gravity, ghost projection and spawn.
 - **Piece lifecycle**: `lockPiece()` → `merge()` → `clearLines()` → `spawn()`. `spawn()` promotes `next` to `current` and triggers `endGame()` if the new piece collides immediately.
 - **Game loop**: `loop()` runs on `requestAnimationFrame`, accumulating `dt` into `dropAccum` and dropping one row per `dropInterval`. Pause/game over work by `cancelAnimationFrame(animId)`; resuming calls `loop()` again after resetting `lastTime`.
